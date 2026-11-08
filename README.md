@@ -9,12 +9,15 @@
 有串天氣 API 會顯示你所在地的氣溫（根據IP定位 可手動輸入地址）<br>
 點齒輪設定可以換介面顏色主題 也能切 12/24 小時制 設定都會自動存在瀏覽器裡<br>
 
-## 螢幕截圖
-
-<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/57110d89-4a12-4acf-ac5e-bead0b6bd149" />
-
-<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/964d6b4c-acb3-4a86-8fd7-e82ec0167d44" />
 
 
 ## 網址
 - https://wwwbww800.github.io/neko-clock/
+- 
+## 螢幕截圖
+
+極簡模式
+<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/57110d89-4a12-4acf-ac5e-bead0b6bd149" />
+
+預設模式
+<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/964d6b4c-acb3-4a86-8fd7-e82ec0167d44" />
