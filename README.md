@@ -1,5 +1,5 @@
 
-# Neko Clock
+# Neko Chronos
 
 一個網頁時鐘(貓娘版)
 
