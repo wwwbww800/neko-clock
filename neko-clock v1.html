@@ -46,7 +46,7 @@
 
     /* 毛玻璃卡片 */
     .glass-card {
-      background: rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.15);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -122,7 +122,7 @@
     // ===== 預設設定 =====
     const DEFAULT_SETTINGS = {
       location: '',        // 城市名（供天氣使用）
-      use12Hour: false,    // 12小時制
+      use12Hour: true,    // 12小時制
       textColor: 'sakura', // 文字顏色主題
       showMood: true,      // 顯示心情問候
     };
@@ -146,8 +146,8 @@
     const getGreeting = (hour) => {
       if (hour >= 5 && hour < 11) return '主人早安喵~ 今天也要元氣滿滿喔！☀️';
       if (hour >= 11 && hour < 14) return '午安喵~ 主人記得吃午飯哦，吃飽飽才有力氣摸魚！🍱';
-      if (hour >= 14 && hour < 18) return '下午好喵~ 辛苦了，要不要休息一下呢？(˘ω˘)';
-      if (hour >= 18 && hour < 22) return '晚上好喵~ 今天過得怎麼樣呀？要放鬆一下嗎？🌙';
+      if (hour >= 14 && hour < 18) return '下午好喵~ 主人辛苦了，要不要休息一下呢？(˘ω˘)';
+      if (hour >= 18 && hour < 22) return '晚上好喵~ 主人今天過得怎麼樣呀？要放鬆一下嗎？🌙';
       return '這麼晚了還沒睡喵...主人要注意身體哦 (´;ω;`) 早點休息嘛~';
     };
 
