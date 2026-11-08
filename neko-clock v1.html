@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0815" />
+  <title>Neko Clock</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐱</text></svg>" />
+
+  <!-- 字體：Noto Sans TC（現代無襯線中文）+ JetBrains Mono（數字） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind（CDN）、React、Babel：免安裝、免建置 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+
+  <style>
+    :root {
+      --neon-purple: #c77dff;
+      --neon-pink: #ffb3c6;
+      --neon-mint: #72efdd;
+      --theme-color: #ffd6e0;
+      --theme-glow: rgba(255, 179, 198, 0.4);
+      --font-sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Heiti TC', 'Noto Sans CJK TC', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body, #root { margin: 0; width: 100%; height: 100%; }
+
+    body {
+      background: #0a0815;
+      color: #fff;
+      overflow: hidden;
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
+    .neko-root, .neko-root button, .neko-root input { font-family: var(--font-sans); }
+
+    /* 毛玻璃卡片 */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    /* 背景星星 */
+    .star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      opacity: 0.2;
+      animation: twinkle var(--duration, 3s) ease-in-out var(--delay, 0s) infinite;
+    }
+
+    /* 時鐘（顏色由主題變數驅動，切換顏色時全部跟著變） */
+    .neko-root .clock-digit {
+      display: inline-block;
+      min-width: 0.62em;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, #fff 0%, var(--theme-color) 100%) !important;
+      -webkit-background-clip: text !important;
+      background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+    }
+    .neko-root .clock-colon {
+      display: inline-block;
+      font-family: var(--font-mono);
+      color: var(--theme-color) !important;
+      text-shadow: 0 0 12px var(--theme-glow) !important;
+      animation: colon-blink 1s ease-in-out infinite;
+    }
+    .changing .clock-digit:last-child { animation: digit-pop 0.3s ease-out; }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.15; transform: scale(0.8); }
+      50% { opacity: 0.9; transform: scale(1.2); }
+    }
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes colon-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    @keyframes hint-fade {
+      0% { opacity: 0; transform: translateY(8px); }
+      15% { opacity: 1; transform: translateY(0); }
+      75% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    @keyframes digit-pop {
+      0% { transform: translateY(-6%) scale(1.06); opacity: 0.6; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .star, .clock-colon, .changing .clock-digit:last-child { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <noscript>請啟用 JavaScript 以顯示時鐘。</noscript>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ===== 預設設定 =====
+    const DEFAULT_SETTINGS = {
+      location: '',        // 城市名（供天氣使用）
+      use12Hour: false,    // 12小時制
+      textColor: 'sakura', // 文字顏色主題
+      showMood: true,      // 顯示心情問候
+    };
+
+    // ===== 字體 =====
+    const FONT_SANS = "var(--font-sans)";
+    const FONT_MONO = "var(--font-mono)";
+
+    // ===== 文字顏色主題 =====
+    const TEXT_COLOR_THEMES = {
+      sakura: { label: '櫻花', emoji: '🌸', color: '#ffd6e0', glow: 'rgba(255,179,198,0.4)' },
+      mint: { label: '薄荷', emoji: '🌿', color: '#72efdd', glow: 'rgba(114,239,221,0.4)' },
+      purple: { label: '霓虹紫', emoji: '💜', color: '#c77dff', glow: 'rgba(199,125,255,0.4)' },
+      gold: { label: '星金', emoji: '✨', color: '#ffd166', glow: 'rgba(255,209,102,0.4)' },
+      cyan: { label: '青藍', emoji: '💎', color: '#00f5ff', glow: 'rgba(0,245,255,0.4)' },
+      white: { label: '純白', emoji: '🤍', color: '#ffffff', glow: 'rgba(255,255,255,0.3)' },
+    };
+    const getTheme = (key) => TEXT_COLOR_THEMES[key] || TEXT_COLOR_THEMES.sakura;
+
+    // ===== 貓娘問候語 =====
+    const getGreeting = (hour) => {
+      if (hour >= 5 && hour < 11) return '主人早安喵~ 今天也要元氣滿滿喔！☀️';
+      if (hour >= 11 && hour < 14) return '午安喵~ 主人記得吃午飯哦，吃飽飽才有力氣摸魚！🍱';
+      if (hour >= 14 && hour < 18) return '下午好喵~ 辛苦了，要不要休息一下呢？(˘ω˘)';
+      if (hour >= 18 && hour < 22) return '晚上好喵~ 今天過得怎麼樣呀？要放鬆一下嗎？🌙';
+      return '這麼晚了還沒睡喵...主人要注意身體哦 (´;ω;`) 早點休息嘛~';
+    };
+
+    // ===== localStorage 工具 =====
+    const loadSettings = () => {
+      try {
+        const raw = localStorage.getItem('neko-clock-settings');
+        if (raw) {
+          const merged = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+          if (!TEXT_COLOR_THEMES[merged.textColor]) merged.textColor = DEFAULT_SETTINGS.textColor;
+          merged.location = typeof merged.location === 'string' ? merged.location : '';
+          merged.use12Hour = !!merged.use12Hour;
+          merged.showMood = !!merged.showMood;
+          return merged;
+        }
+      } catch (e) { /* ignore */ }
+      return DEFAULT_SETTINGS;
+    };
+    const saveSettings = (s) => {
+      try { localStorage.setItem('neko-clock-settings', JSON.stringify(s)); } catch (e) { /* ignore */ }
+    };
+
+    // ===== 共用：定時更新的「現在時間」 =====
+    const useNow = (intervalMs) => {
+      const [now, setNow] = useState(() => new Date());
+      useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), intervalMs);
+        return () => clearInterval(id);
+      }, [intervalMs]);
+      return now;
+    };
+
+    // ===== 天氣代碼 → Emoji（wttr.in 代碼）=====
+    const getWeatherEmoji = (code) => {
+      const c = parseInt(code, 10);
+      if (c === 113) return '☀️';
+      if (c === 116) return '⛅';
+      if (c === 119 || c === 122) return '☁️';
+      if ([143, 248, 260].includes(c)) return '🌫️';
+      if ([200, 386, 389, 392, 395].includes(c)) return '⛈️';
+      if ([179, 182, 185, 227, 230, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 362, 365, 368, 371, 374, 377].includes(c)) return '🌨️';
+      if ([176, 263, 266, 281, 284, 293, 296, 299, 302, 305, 308, 353, 356, 359].includes(c)) return '🌧️';
+      return '🌤️';
+    };
+
+    // ===== 背景星星 =====
+    const Stars = () => {
+      const stars = useMemo(() => Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        duration: 2 + Math.random() * 4,
+        delay: Math.random() * 3,
+        size: 1 + Math.random() * 3,
+      })), []);
+      return (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          {stars.map((s) => (
+            <div
+              key={s.id}
+              className="star"
+              style={{
+                left: `${s.left}%`,
+                top: `${s.top}%`,
+                width: `${s.size}px`,
+                height: `${s.size}px`,
+                '--duration': `${s.duration}s`,
+                '--delay': `${s.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+      );
+    };
+
+    // ===== 時鐘 =====
+    const DIGIT_CLASS = 'clock-digit text-[4rem] sm:text-[6rem] lg:text-[8rem] xl:text-[10rem] leading-none';
+    const COLON_CLASS = 'clock-colon text-[3.5rem] sm:text-[5rem] lg:text-[7rem] xl:text-[9rem] font-bold leading-none mx-1';
+
+    const Clock = ({ use12Hour, textColor }) => {
+      const time = useNow(200);
+      const [changingDigits, setChangingDigits] = useState(new Set());
+      const prevRef = useRef(null);
+      const theme = getTheme(textColor);
+
+      const rawH = time.getHours();
+      const rawM = time.getMinutes();
+      const rawS = time.getSeconds();
+
+      useEffect(() => {
+        const cur = { h: rawH, m: rawM, s: rawS };
+        const prev = prevRef.current;
+        prevRef.current = cur;
+        if (!prev) return;
+        const changed = new Set();
+        if (prev.h !== cur.h) changed.add('hours');
+        if (prev.m !== cur.m) changed.add('minutes');
+        if (prev.s !== cur.s) changed.add('seconds');
+        if (changed.size === 0) return;
+        setChangingDigits(changed);
+        const t = setTimeout(() => setChangingDigits(new Set()), 300);
+        return () => clearTimeout(t);
+      }, [rawH, rawM, rawS]);
+
+      const pad = (n) => n.toString().padStart(2, '0');
+      let h = rawH;
+      let suffix = '';
+      if (use12Hour) {
+        suffix = h >= 12 ? 'PM' : 'AM';
+        h = h % 12;
+        if (h === 0) h = 12;
+      }
+      const hours = pad(h);
+      const m = pad(rawM);
+      const s = pad(rawS);
+
+      const digitStyle = {
+        background: `linear-gradient(135deg, #fff 0%, ${theme.color} 100%)`,
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+        filter: `drop-shadow(0 0 10px ${theme.glow})`,
+      };
+      const colonStyle = { color: theme.color, textShadow: `0 0 12px ${theme.glow}` };
+
+      const group = (key, value) => (
+        <div className={`flex ${changingDigits.has(key) ? 'changing' : ''}`}>
+          <span className={DIGIT_CLASS} style={digitStyle}>{value[0]}</span>
+          <span className={DIGIT_CLASS} style={digitStyle}>{value[1]}</span>
+        </div>
+      );
+
+      return (
+        <div className="flex items-center justify-center gap-1 sm:gap-2 select-none">
+          {group('hours', hours)}
+          <span className={COLON_CLASS} style={colonStyle}>:</span>
+          {group('minutes', m)}
+          <span className={COLON_CLASS} style={colonStyle}>:</span>
+          {group('seconds', s)}
+          {use12Hour && (
+            <span
+              className="ml-2 text-2xl sm:text-3xl lg:text-4xl font-bold self-end mb-4"
+              style={{ color: theme.color, textShadow: `0 0 10px ${theme.glow}`, fontFamily: FONT_MONO }}
+            >
+              {suffix}
+            </span>
+          )}
+        </div>
+      );
+    };
+
+    // ===== 日期 =====
+    const DateDisplay = ({ textColor }) => {
+      const time = useNow(30000);
+      const theme = getTheme(textColor);
+      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+      const dateStr = `${time.getFullYear()} 年 ${time.getMonth() + 1} 月 ${time.getDate()} 日 星期${weekdays[time.getDay()]}`;
+      return (
+        <div className="text-center" style={{ animation: 'slide-up 0.6s ease-out' }}>
+          <p className="text-lg sm:text-xl lg:text-2xl font-light tracking-wider"
+             style={{ fontFamily: FONT_SANS, color: `${theme.color}aa` }}>
+            {dateStr}
+          </p>
+        </div>
+      );
+    };
+
+    // ===== 問候語 =====
+    const Greeting = ({ visible, textColor }) => {
+      const time = useNow(30000);
+      const theme = getTheme(textColor);
+      return (
+        <div
+          className="text-center overflow-hidden transition-all duration-500 ease-out"
+          style={{
+            maxHeight: visible ? '120px' : '0px',
+            opacity: visible ? 1 : 0,
+            marginTop: visible ? '1rem' : '0',
+          }}
+          aria-hidden={!visible}
+        >
+          <p className="text-base sm:text-lg lg:text-xl font-medium"
+             style={{ fontFamily: FONT_SANS, color: theme.color, textShadow: `0 0 10px ${theme.glow}` }}>
+            {getGreeting(time.getHours())}
+          </p>
+        </div>
+      );
+    };
+
+    // ===== 天氣卡片 =====
+    const WeatherCard = ({ location, textColor }) => {
+      const [weather, setWeather] = useState(null);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(false);
+      const theme = getTheme(textColor);
+
+      useEffect(() => {
+        let cancelled = false;
+        let controller = null;
+
+        const load = async (initial) => {
+          if (controller) controller.abort();
+          const ctrl = new AbortController();
+          controller = ctrl;
+          const timeout = setTimeout(() => ctrl.abort(), 10000);
+
+          if (initial) { setLoading(true); setError(false); }
+          try {
+            const base = location ? `https://wttr.in/${encodeURIComponent(location)}` : 'https://wttr.in/';
+            const res = await fetch(`${base}?format=j1&lang=zh-tw`, { signal: ctrl.signal });
+            if (!res.ok) throw new Error('fetch failed');
+            const data = await res.json();
+            const current = data.current_condition[0];
+            const area = data.nearest_area && data.nearest_area[0];
+            const country = area && area.country && area.country[0] && area.country[0].value;
+            const areaName = area && area.areaName && area.areaName[0] && area.areaName[0].value;
+            const locName = area ? `${areaName || ''}${country ? ', ' + country : ''}` : '當前位置';
+            if (cancelled) return;
+            const zhDesc =
+              (current['lang_zh-tw'] && current['lang_zh-tw'][0] && current['lang_zh-tw'][0].value) ||
+              (current.lang_zh && current.lang_zh[0] && current.lang_zh[0].value) ||
+              (current.weatherDesc && current.weatherDesc[0] && current.weatherDesc[0].value) || '';
+            setWeather({
+              temp: current.temp_C,
+              desc: zhDesc,
+              icon: getWeatherEmoji(current.weatherCode),
+              loc: locName,
+            });
+            setError(false);
+          } catch (e) {
+            if (!cancelled && initial) setError(true);
+          } finally {
+            clearTimeout(timeout);
+            if (!cancelled && initial) setLoading(false);
+          }
+        };
+
+        load(true);
+        const id = setInterval(() => load(false), 30 * 60 * 1000);
+        return () => {
+          cancelled = true;
+          if (controller) controller.abort();
+          clearInterval(id);
+        };
+      }, [location]);
+
+      return (
+        <div className="glass-card p-5 sm:p-6 lg:p-8 w-full max-w-sm" style={{ animation: 'slide-up 1s ease-out' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm font-medium" style={{ color: theme.color }}>🌡️ 天氣</span>
+            <div className="flex-1 h-px bg-gradient-to-r from-white/20 to-transparent"></div>
+            {weather && !error && (
+              <span className="text-xs text-white/40 truncate max-w-[120px]" title={weather.loc}>
+                📍 {weather.loc}
+              </span>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full border-2 animate-spin"
+                   style={{ borderColor: theme.color, borderTopColor: 'transparent' }}></div>
+              <span className="text-white/50 text-sm">正在獲取天氣喵...</span>
+            </div>
+          ) : error ? (
+            <p className="text-white/50 text-sm">嗚嗚，天氣獲取失敗了喵 (´;ω;`)</p>
+          ) : weather ? (
+            <div className="flex items-center gap-5">
+              <span className="text-4xl sm:text-5xl">{weather.icon}</span>
+              <div>
+                <p className="text-3xl sm:text-4xl font-bold" style={{ fontFamily: FONT_MONO, color: theme.color }}>
+                  {weather.temp}°C
+                </p>
+                <p className="text-sm text-white/60 mt-1">{weather.desc}</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      );
+    };
+
+    // ===== 設定面板 =====
+    const SettingsPanel = ({ settings, onChange, onClose }) => {
+      const [draftLocation, setDraftLocation] = useState(settings.location);
+
+      useEffect(() => {
+        const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+      }, [onClose]);
+
+      const theme = getTheme(settings.textColor);
+
+      const applyLocation = () => {
+        const next = draftLocation.trim();
+        setDraftLocation(next);
+        onChange({ location: next });
+      };
+
+      const formatBtn = (active) => ({
+        background: active ? `linear-gradient(135deg, ${theme.color}30, ${theme.color}10)` : 'rgba(255,255,255,0.03)',
+        border: `1px solid ${active ? theme.color : 'rgba(255,255,255,0.1)'}`,
+        color: active ? theme.color : 'rgba(255,255,255,0.7)',
+        boxShadow: active ? `0 0 15px ${theme.glow}` : 'none',
+      });
+
+      return (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', animation: 'slide-up 0.3s ease-out' }}
+          role="dialog" aria-modal="true" aria-label="設定"
+        >
+          <div
+            className="glass-card p-6 sm:p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto"
+            style={{ borderRadius: '2rem', animation: 'slide-up 0.4s cubic-bezier(0.4,0,0.2,1)' }}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2"
+                  style={{ fontFamily: FONT_SANS, color: theme.color, textShadow: `0 0 10px ${theme.glow}` }}>
+                ⚙️ 設定
+              </h2>
+              <button
+                onClick={onClose}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all"
+                aria-label="關閉"
+              >✕</button>
+            </div>
+
+            <div className="space-y-6">
+              {/* 1. 定位設定 */}
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-2">
+                  📍 城市定位 <span className="text-white/40 text-xs">(供天氣使用)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={draftLocation}
+                    onChange={(e) => setDraftLocation(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && applyLocation()}
+                    placeholder="例如：Taipei, Tokyo, London"
+                    maxLength={60}
+                    className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white placeholder-white/30 focus:outline-none focus:border-white/30 transition-colors text-sm"
+                    style={{ fontFamily: FONT_MONO }}
+                  />
+                  <button
+                    onClick={applyLocation}
+                    className="px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-all hover:scale-105 active:scale-95"
+                    style={{ background: `linear-gradient(135deg, ${theme.color}40, ${theme.color}20)`, border: `1px solid ${theme.color}60` }}
+                  >套用</button>
+                </div>
+                <p className="text-xs text-white/40 mt-2">
+                  {settings.location ? `✅ 當前：${settings.location}` : '💡 留空則自動使用 IP 定位'}
+                </p>
+              </div>
+
+              {/* 2. 時間格式 */}
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-3">🕐 時間格式</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => onChange({ use12Hour: false })}
+                    className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${!settings.use12Hour ? 'scale-105' : 'opacity-60 hover:opacity-80'}`}
+                    style={formatBtn(!settings.use12Hour)}
+                  >
+                    24 小時制
+                    <div className="text-xs mt-1 opacity-60" style={{ fontFamily: FONT_MONO }}>14:30:00</div>
+                  </button>
+                  <button
+                    onClick={() => onChange({ use12Hour: true })}
+                    className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${settings.use12Hour ? 'scale-105' : 'opacity-60 hover:opacity-80'}`}
+                    style={formatBtn(settings.use12Hour)}
+                  >
+                    12 小時制
+                    <div className="text-xs mt-1 opacity-60" style={{ fontFamily: FONT_MONO }}>02:30 PM</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. 文字顏色 */}
+              <div>
+                <label className="block text-sm font-medium text-white/80 mb-3">🎨 文字顏色</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(TEXT_COLOR_THEMES).map(([key, t]) => {
+                    const active = settings.textColor === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => onChange({ textColor: key })}
+                        aria-pressed={active}
+                        className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-1 ${active ? 'scale-105' : 'opacity-60 hover:opacity-90'}`}
+                        style={{
+                          background: active ? `${t.color}20` : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${active ? t.color : 'rgba(255,255,255,0.1)'}`,
+                          color: t.color,
+                          boxShadow: active ? `0 0 12px ${t.glow}` : 'none',
+                        }}
+                      >
+                        <span className="text-lg">{t.emoji}</span>
+                        <span>{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. 心情問候開關 */}
+              <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                <label className="text-sm font-medium text-white/80">💭 貓娘問候語</label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings.showMood}
+                  onClick={() => onChange({ showMood: !settings.showMood })}
+                  className="relative w-12 h-6 rounded-full transition-colors duration-300"
+                  style={{ background: settings.showMood ? theme.color : 'rgba(255,255,255,0.15)' }}
+                >
+                  <span
+                    className="absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all duration-300 shadow-md"
+                    style={{ left: settings.showMood ? 'calc(100% - 22px)' : '2px' }}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <p className="text-center text-xs text-white/30 mt-6">設定會自動儲存到本機 ✧ 按 ESC 關閉</p>
+          </div>
+        </div>
+      );
+    };
+
+    // ===== 全螢幕 =====
+    const getFsElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+    const FS_SUPPORTED = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+
+    const useFullscreen = () => {
+      const [isFs, setIsFs] = useState(!!getFsElement());
+      useEffect(() => {
+        const onChange = () => setIsFs(!!getFsElement());
+        document.addEventListener('fullscreenchange', onChange);
+        document.addEventListener('webkitfullscreenchange', onChange);
+        return () => {
+          document.removeEventListener('fullscreenchange', onChange);
+          document.removeEventListener('webkitfullscreenchange', onChange);
+        };
+      }, []);
+      const toggle = () => {
+        try {
+          if (getFsElement()) {
+            const exit = document.exitFullscreen || document.webkitExitFullscreen;
+            if (exit) { const p = exit.call(document); if (p && p.catch) p.catch(() => {}); }
+          } else {
+            const el = document.documentElement;
+            const req = el.requestFullscreen || el.webkitRequestFullscreen;
+            if (req) { const p = req.call(el); if (p && p.catch) p.catch(() => {}); }
+          }
+        } catch (e) { /* ignore */ }
+      };
+      return { isFs, toggle };
+    };
+
+    // ===== 主應用 =====
+    function App() {
+      const [settings, setSettings] = useState(loadSettings);
+      const [showSettings, setShowSettings] = useState(false);
+      const [buttonsHidden, setButtonsHidden] = useState(false);
+      const { isFs, toggle: toggleFs } = useFullscreen();
+
+      // 隱藏按鈕後：按任意鍵（或點擊／觸控螢幕）恢復顯示
+      useEffect(() => {
+        if (!buttonsHidden) return;
+        const show = () => setButtonsHidden(false);
+        // 延遲綁定，避免觸發「隱藏」的那一下點擊／按鍵立刻又把按鈕叫回來
+        const t = setTimeout(() => {
+          window.addEventListener('keydown', show);
+          window.addEventListener('pointerdown', show);
+        }, 300);
+        return () => {
+          clearTimeout(t);
+          window.removeEventListener('keydown', show);
+          window.removeEventListener('pointerdown', show);
+        };
+      }, [buttonsHidden]);
+
+      const handleChange = (patch) => setSettings((prev) => ({ ...prev, ...patch }));
+
+      useEffect(() => { saveSettings(settings); }, [settings]);
+
+      const theme = getTheme(settings.textColor);
+      const closeSettings = () => setShowSettings(false);
+
+      const rootStyle = {
+        background: 'radial-gradient(ellipse at 30% 20%, #1a0b3e 0%, #0d0b1a 50%, #0a0815 100%)',
+        fontFamily: FONT_SANS,
+        cursor: buttonsHidden ? 'none' : undefined,
+        '--theme-color': theme.color,
+        '--theme-glow': theme.glow,
+      };
+
+      return (
+        <div
+          className="neko-root relative w-full h-screen overflow-hidden flex flex-col items-center justify-center px-4 sm:px-8"
+          style={rootStyle}
+        >
+          <Stars />
+
+          {/* 背景光暈 */}
+          <div className="fixed inset-0 pointer-events-none">
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full opacity-20 blur-[100px]"
+                 style={{ background: 'var(--neon-purple)' }}></div>
+            <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full opacity-15 blur-[80px]"
+                 style={{ background: 'var(--neon-pink)' }}></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-10 blur-[120px]"
+                 style={{ background: 'var(--neon-mint)' }}></div>
+          </div>
+
+          {/* 右上角按鈕組 */}
+          <div
+            className="fixed top-6 right-6 z-40 flex items-center gap-2"
+            style={{
+              opacity: buttonsHidden ? 0 : 1,
+              transform: buttonsHidden ? 'translateY(-8px)' : 'translateY(0)',
+              visibility: buttonsHidden ? 'hidden' : 'visible',
+              pointerEvents: buttonsHidden ? 'none' : 'auto',
+              transition: 'opacity 0.4s ease, transform 0.4s ease, visibility 0.4s',
+            }}
+            aria-hidden={buttonsHidden}
+          >
+            <button
+              onClick={() => handleChange({ showMood: !settings.showMood })}
+              className="glass-card px-4 py-2 flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95 transition-transform duration-200"
+              style={{ borderRadius: '9999px' }}
+              title={settings.showMood ? '隱藏心情問候' : '顯示心情問候'}
+            >
+              <span className="text-base">{settings.showMood ? '🙈' : '🐱'}</span>
+              <span className="text-xs sm:text-sm text-white/70 hidden sm:inline">
+                {settings.showMood ? '隱藏心情' : '顯示心情'}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setButtonsHidden(true)}
+              className="glass-card w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 transition-transform duration-200"
+              style={{ borderRadius: '9999px' }}
+              title="隱藏所有按鈕（按任意鍵恢復）"
+              aria-label="隱藏所有按鈕"
+            >
+              <span className="text-lg">👁️</span>
+            </button>
+
+            {FS_SUPPORTED && (
+              <button
+                onClick={toggleFs}
+                className="glass-card w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 transition-transform duration-200"
+                style={{ borderRadius: '9999px', color: theme.color }}
+                title={isFs ? '退出全螢幕' : '全螢幕'}
+                aria-label={isFs ? '退出全螢幕' : '全螢幕'}
+              >
+                {isFs ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 4v3a2 2 0 0 1-2 2H4" /><path d="M15 4v3a2 2 0 0 0 2 2h3" />
+                    <path d="M9 20v-3a2 2 0 0 0-2-2H4" /><path d="M15 20v-3a2 2 0 0 1 2-2h3" />
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 9V6a2 2 0 0 1 2-2h3" /><path d="M20 9V6a2 2 0 0 0-2-2h-3" />
+                    <path d="M4 15v3a2 2 0 0 0 2 2h3" /><path d="M20 15v3a2 2 0 0 1-2 2h-3" />
+                  </svg>
+                )}
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowSettings(true)}
+              className="glass-card w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 transition-transform duration-200"
+              style={{ borderRadius: '9999px' }}
+              title="開啟設定"
+              aria-label="開啟設定"
+            >
+              <span className="text-lg" style={{ color: theme.color }}>⚙️</span>
+            </button>
+          </div>
+
+          {/* 隱藏按鈕時的短暫提示 */}
+          {buttonsHidden && (
+            <div className="fixed bottom-12 left-0 right-0 z-40 flex justify-center pointer-events-none"
+                 style={{ animation: 'hint-fade 3s ease-out forwards' }}>
+              <span className="glass-card px-4 py-2 text-xs sm:text-sm text-white/70" style={{ borderRadius: '9999px' }}>
+                按任意鍵恢復按鈕 ✧
+              </span>
+            </div>
+          )}
+
+          {/* 主內容 */}
+          <div className="relative z-10 flex flex-col items-center gap-4 sm:gap-6 lg:gap-8 w-full max-w-4xl">
+            <div className="flex flex-col items-center gap-3 sm:gap-4">
+              <Clock use12Hour={settings.use12Hour} textColor={settings.textColor} />
+              <DateDisplay textColor={settings.textColor} />
+              <Greeting visible={settings.showMood} textColor={settings.textColor} />
+            </div>
+
+            <div className="flex justify-center w-full mt-6 sm:mt-8">
+              <WeatherCard location={settings.location} textColor={settings.textColor} />
+            </div>
+          </div>
+
+          {/* 底部文字 */}
+          <div className="absolute bottom-4 left-0 right-0 text-center">
+            <p className="text-xs text-white/20" style={{ fontFamily: FONT_SANS }}>
+              ✧ Neko Clock v1.0 — 為主人打造的專屬時鐘喵~ ✧
+            </p>
+          </div>
+
+          {showSettings && (
+            <SettingsPanel settings={settings} onChange={handleChange} onClose={closeSettings} />
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
