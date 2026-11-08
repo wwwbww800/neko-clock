@@ -13,11 +13,11 @@
 
 ## 網址
 - https://wwwbww800.github.io/neko-clock/
-- 
+
 ## 螢幕截圖
 
-極簡模式
+極簡模式<br>
 <img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/57110d89-4a12-4acf-ac5e-bead0b6bd149" />
 
-預設模式
+預設模式<br>
 <img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/964d6b4c-acb3-4a86-8fd7-e82ec0167d44" />
