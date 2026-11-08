@@ -681,11 +681,11 @@
               onClick={() => handleChange({ showMood: !settings.showMood })}
               className="glass-card px-4 py-2 flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95 transition-transform duration-200"
               style={{ borderRadius: '9999px' }}
-              title={settings.showMood ? '隱藏心情問候' : '顯示心情問候'}
+              title={settings.showMood ? '隱藏問候' : '顯示問候'}
             >
-              <span className="text-base">{settings.showMood ? '🙈' : '🐱'}</span>
+              <span className="text-base">{settings.showMood ? '' : ''}</span>
               <span className="text-xs sm:text-sm text-white/70 hidden sm:inline">
-                {settings.showMood ? '隱藏心情' : '顯示心情'}
+                {settings.showMood ? '隱藏問候' : '顯示問候'}
               </span>
             </button>
 
