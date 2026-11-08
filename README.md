@@ -13,7 +13,7 @@
 
 <img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/57110d89-4a12-4acf-ac5e-bead0b6bd149" />
 
-<img width="1536" height="870" alt="image" src="https://github.com/user-attachments/assets/964d6b4c-acb3-4a86-8fd7-e82ec0167d44" />
+<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/964d6b4c-acb3-4a86-8fd7-e82ec0167d44" />
 
 
 ## 網址
