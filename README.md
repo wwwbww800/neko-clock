@@ -16,10 +16,12 @@
 ## 螢幕截圖
 
 極簡模式<br>
-<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/57110d89-4a12-4acf-ac5e-bead0b6bd149" />
 
-預設模式<br>
-<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/964d6b4c-acb3-4a86-8fd7-e82ec0167d44" />
+
+<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/370c4603-1b22-45f7-afc7-e5275b1529c0" />
+
+完整模式<br>
+<img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/5ca339e9-f04c-4ad7-8b10-926565886d22" />
 
 
 本專案程式碼由
