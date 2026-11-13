@@ -24,8 +24,8 @@
 <img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/5ca339e9-f04c-4ad7-8b10-926565886d22" />
 
 
-本專案程式碼由
-claude sonnet 5.5
-Qwen 3.8 max
-Qwen 4 max
+本專案程式碼由<br>
+claude sonnet 5.5<br>
+Qwen 3.8 max<br>
+Qwen 4 max<br>
 撰寫
