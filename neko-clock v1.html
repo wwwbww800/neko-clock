@@ -23,8 +23,8 @@
       --neon-purple: #c77dff;
       --neon-pink: #ffb3c6;
       --neon-mint: #72efdd;
-      --theme-color: #ffd6e0;
-      --theme-glow: rgba(255, 179, 198, 0.4);
+      --theme-color: #ffffff;
+      --theme-glow: rgba(255, 255, 255, 0.3);
       --font-sans: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', 'Heiti TC', 'Noto Sans CJK TC', system-ui, -apple-system, 'Segoe UI', sans-serif;
       --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
     }
@@ -122,9 +122,10 @@
     // ===== 預設設定 =====
     const DEFAULT_SETTINGS = {
       location: '',        // 城市名（供天氣使用）
-      use12Hour: true,    // 12小時制
-      textColor: 'sakura', // 文字顏色主題
+      use12Hour: true,     // 12小時制（預設）
+      textColor: 'white',  // 文字顏色主題（預設純白）
       showMood: true,      // 顯示心情問候
+      showWeather: true,   // 顯示天氣
     };
 
     // ===== 字體 =====
@@ -140,7 +141,7 @@
       cyan: { label: '電光藍', emoji: '💎', color: '#00f5ff', glow: 'rgba(0,245,255,0.4)' },
       white: { label: '純白', emoji: '🤍', color: '#ffffff', glow: 'rgba(255,255,255,0.3)' },
     };
-    const getTheme = (key) => TEXT_COLOR_THEMES[key] || TEXT_COLOR_THEMES.sakura;
+    const getTheme = (key) => TEXT_COLOR_THEMES[key] || TEXT_COLOR_THEMES.white;
 
     // ===== 貓娘問候語 =====
     const getGreeting = (hour) => {
@@ -161,6 +162,7 @@
           merged.location = typeof merged.location === 'string' ? merged.location : '';
           merged.use12Hour = !!merged.use12Hour;
           merged.showMood = !!merged.showMood;
+          merged.showWeather = !!merged.showWeather;
           return merged;
         }
       } catch (e) { /* ignore */ }
@@ -338,13 +340,14 @@
     };
 
     // ===== 天氣卡片 =====
-    const WeatherCard = ({ location, textColor }) => {
+    const WeatherCard = ({ location, textColor, active }) => {
       const [weather, setWeather] = useState(null);
       const [loading, setLoading] = useState(true);
       const [error, setError] = useState(false);
       const theme = getTheme(textColor);
 
       useEffect(() => {
+        if (!active) return;
         let cancelled = false;
         let controller = null;
 
@@ -392,10 +395,10 @@
           if (controller) controller.abort();
           clearInterval(id);
         };
-      }, [location]);
+      }, [location, active]);
 
       return (
-        <div className="glass-card p-5 sm:p-6 lg:p-8 w-full max-w-sm" style={{ animation: 'slide-up 1s ease-out' }}>
+        <div className="glass-card p-5 sm:p-6 lg:p-8 w-full max-w-sm" style={{ background: 'rgba(13, 11, 26, 0.55)', animation: 'slide-up 1s ease-out' }}>
           <div className="flex items-center gap-2 mb-4">
             <span className="text-sm font-medium" style={{ color: theme.color }}>🌡️ 天氣</span>
             <div className="flex-1 h-px bg-gradient-to-r from-white/20 to-transparent"></div>
@@ -462,7 +465,7 @@
         >
           <div
             className="glass-card p-6 sm:p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto"
-            style={{ borderRadius: '2rem', animation: 'slide-up 0.4s cubic-bezier(0.4,0,0.2,1)' }}
+            style={{ borderRadius: '2rem', background: 'rgba(13, 11, 26, 0.8)', animation: 'slide-up 0.4s cubic-bezier(0.4,0,0.2,1)' }}
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2"
@@ -567,8 +570,32 @@
                   style={{ background: settings.showMood ? theme.color : 'rgba(255,255,255,0.1)' }}
                 >
                   <span
-                    className="absolute top-0.5 w-5 h-5 bg-white rounded-full transition-all duration-300 shadow-md"
-                    style={{ left: settings.showMood ? 'calc(100% - 22px)' : '2px' }}
+                    className="absolute top-0.5 w-5 h-5 rounded-full transition-all duration-300 shadow-md"
+                    style={{
+                      left: settings.showMood ? 'calc(100% - 22px)' : '2px',
+                      background: settings.showMood ? '#0d0b1a' : '#ffffff',
+                    }}
+                  />
+                </button>
+              </div>
+
+              {/* 5. 天氣顯示開關 */}
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-white/80">🌡️ 顯示天氣</label>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings.showWeather}
+                  onClick={() => onChange({ showWeather: !settings.showWeather })}
+                  className="relative w-12 h-6 rounded-full transition-colors duration-300"
+                  style={{ background: settings.showWeather ? theme.color : 'rgba(255,255,255,0.1)' }}
+                >
+                  <span
+                    className="absolute top-0.5 w-5 h-5 rounded-full transition-all duration-300 shadow-md"
+                    style={{
+                      left: settings.showWeather ? 'calc(100% - 22px)' : '2px',
+                      background: settings.showWeather ? '#0d0b1a' : '#ffffff',
+                    }}
                   />
                 </button>
               </div>
@@ -678,18 +705,6 @@
             aria-hidden={buttonsHidden}
           >
             <button
-              onClick={() => handleChange({ showMood: !settings.showMood })}
-              className="glass-card px-4 py-2 flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95 transition-transform duration-200"
-              style={{ borderRadius: '9999px' }}
-              title={settings.showMood ? '隱藏問候' : '顯示問候'}
-            >
-              <span className="text-base">{settings.showMood ? '💭' : '💬'}</span>
-              <span className="text-xs sm:text-sm text-white/70 hidden sm:inline">
-                {settings.showMood ? '隱藏問候' : '顯示問候'}
-              </span>
-            </button>
-
-            <button
               onClick={() => setButtonsHidden(true)}
               className="glass-card w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center cursor-pointer hover:scale-110 active:scale-95 transition-transform duration-200"
               style={{ borderRadius: '9999px' }}
@@ -750,8 +765,15 @@
               <Greeting visible={settings.showMood} textColor={settings.textColor} />
             </div>
 
-            <div className="flex justify-center w-full mt-6 sm:mt-8">
-              <WeatherCard location={settings.location} textColor={settings.textColor} />
+            <div
+              className={`flex justify-center w-full overflow-hidden transition-all duration-500 ease-out ${settings.showWeather ? 'mt-6 sm:mt-8' : 'mt-0'}`}
+              style={{
+                maxHeight: settings.showWeather ? '240px' : '0px',
+                opacity: settings.showWeather ? 1 : 0,
+              }}
+              aria-hidden={!settings.showWeather}
+            >
+              <WeatherCard location={settings.location} textColor={settings.textColor} active={settings.showWeather} />
             </div>
           </div>
 
