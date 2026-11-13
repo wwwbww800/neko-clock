@@ -21,3 +21,10 @@
 
 預設模式<br>
 <img width="639" height="364" alt="image" src="https://github.com/user-attachments/assets/964d6b4c-acb3-4a86-8fd7-e82ec0167d44" />
+
+
+本專案程式碼由
+claude sonnet 5.5
+Qwen 3.8 max
+Qwen 4 max
+撰寫
